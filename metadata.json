@@ -1,0 +1,5 @@
+{
+  "name": "Frictionless AI Dietician",
+  "description": "A premium, minimalist AI-powered dietician that generates meal plans from fridge photos.",
+  "requestFramePermissions": ["camera"]
+}

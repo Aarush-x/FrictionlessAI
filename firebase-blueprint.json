@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "UserStats": {
+      "title": "User Stats",
+      "description": "Gamification metrics for the user.",
+      "type": "object",
+      "properties": {
+        "currentStreak": { "type": "number" },
+        "longestStreak": { "type": "number" },
+        "lastUploadDate": { "type": "string", "format": "date-time" },
+        "totalPlansGenerated": { "type": "number" }
+      }
+    },
+    "MealPlan": {
+      "title": "Meal Plan",
+      "description": "A generated 3-day meal plan with health metrics and grocery list.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who owns this plan." },
+        "protocolName": { "type": "string" },
+        "analysisSummary": { "type": "string" },
+        "healthMetrics": {
+          "type": "object",
+          "properties": {
+            "dailyFiber": { "type": "string" },
+            "uniquePlantsUsed": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "mealPlan": { "type": "array", "items": { "$ref": "MealDay" } },
+        "groceryList": { "type": "array", "items": { "$ref": "GroceryItem" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "protocolName", "mealPlan", "groceryList", "createdAt"]
+    },
+    "MealDay": {
+      "title": "Meal Day",
+      "type": "object",
+      "properties": {
+        "day": { "type": "string" },
+        "title": { "type": "string" },
+        "calories": { "type": "string" },
+        "meals": { "type": "array", "items": { "$ref": "Meal" } }
+      }
+    },
+    "Meal": {
+      "title": "Meal",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["Breakfast", "Lunch", "Dinner", "Snack"] },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "recipe": { "type": "string" },
+        "ingredients": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "GroceryItem": {
+      "title": "Grocery Item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}/plans/{planId}": {
+      "schema": "MealPlan",
+      "description": "User's saved meal plans."
+    },
+    "/users/{userId}/stats/current": {
+      "schema": "UserStats",
+      "description": "User's gamification stats."
+    },
+    "/sharedPlans/{shareId}": {
+      "schema": "MealPlan",
+      "description": "Publicly shared meal plans."
+    }
+  }
+}

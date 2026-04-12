@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidMealPlan(data) {
+      return data.userId is string &&
+             data.protocolName is string &&
+             data.createdAt is string;
+    }
+
+    function isValidUserStats(data) {
+      return data.currentStreak is number &&
+             data.longestStreak is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /users/{userId}/plans/{planId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidMealPlan(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    match /users/{userId}/stats/current {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidUserStats(request.resource.data);
+    }
+
+    match /sharedPlans/{shareId} {
+      allow read: if true; // Publicly accessible
+      allow create: if isAuthenticated() && 
+                      isValidMealPlan(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+  }
+}
