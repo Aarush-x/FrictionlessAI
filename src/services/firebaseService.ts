@@ -1,11 +1,22 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, getDocFromServer, setDoc, getDoc } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, updateProfile } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+// Firebase configuration using environment variables for security
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID;
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
@@ -47,8 +58,13 @@ export const signIn = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in:", error);
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error("Sign-in popup was blocked by your browser. Please allow popups for this site.");
+    } else if (error.code === 'auth/unauthorized-domain') {
+      throw new Error("This domain is not authorized for Firebase Authentication. Please add it to the 'Authorized Domains' in the Firebase Console.");
+    }
     throw error;
   }
 };
@@ -88,14 +104,19 @@ export const saveMealPlan = async (userId: string, planData: any) => {
 export const getSavedPlans = async (userId: string) => {
   try {
     const q = query(
-      collection(db, 'users', userId, 'plans'),
-      orderBy('createdAt', 'desc')
+      collection(db, 'users', userId, 'plans')
+      // Removed orderBy to avoid requiring a manual Firestore index for the prototype
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const plans = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    // Sort manually in memory to avoid index requirement
+    return plans.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   } catch (error) {
     console.error("Error fetching saved plans:", error);
     throw error;

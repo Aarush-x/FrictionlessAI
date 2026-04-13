@@ -1,7 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DietPlanResponse, UserPreferences } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_key || process.env.GEMINI_API_KEY || "" 
+});
+
+// Runtime check for API key to provide better error messages in production
+const validateApiKey = () => {
+  const key = process.env.GEMINI_API_key || process.env.GEMINI_API_KEY;
+  if (!key || key === "MY_GEMINI_API_KEY" || key === "") {
+    throw new Error("GEMINI_API_KEY is missing. Please add it to your Secrets in the AI Studio Settings and redeploy.");
+  }
+};
 
 /**
  * Generates a personalized diet plan using Gemini 3 Flash and creates an Instacart checkout link
@@ -13,11 +23,20 @@ export async function generateDietPlan(
   preferences: UserPreferences,
   basePlan?: DietPlanResponse
 ): Promise<{ plan: DietPlanResponse; instacartUrl: string | null }> {
+  validateApiKey();
   try {
-    // Remove data URL prefix if present
-    const base64Data = base64Image.includes(",") 
-      ? base64Image.split(",")[1] 
-      : base64Image;
+    // Remove data URL prefix if present and detect mimeType
+    let base64Data = base64Image;
+    let mimeType = "image/jpeg";
+
+    if (base64Image.includes(",")) {
+      const parts = base64Image.split(",");
+      base64Data = parts[1];
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      if (mimeMatch) {
+        mimeType = mimeMatch[1];
+      }
+    }
 
     const systemInstruction = `
       Act as a Staff Clinical Dietician and Microbiome Specialist. Analyze the provided image of a refrigerator or pantry.
@@ -62,7 +81,7 @@ export async function generateDietPlan(
             {
               inlineData: {
                 data: base64Data,
-                mimeType: "image/jpeg",
+                mimeType: mimeType,
               },
             },
             {
@@ -148,49 +167,59 @@ export async function generateDietPlan(
 
     const text = response.text;
     if (!text) {
-      throw new Error("AI returned an empty response.");
+      throw new Error("AI returned an empty response. This usually happens if the image is unrecognizable or the model is restricted.");
     }
     
-    const plan = JSON.parse(text) as DietPlanResponse;
+    try {
+      // Clean the response text
+      const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const plan = JSON.parse(cleanedText) as DietPlanResponse;
 
-    // Part 2: Instacart Integration
-    let instacartUrl = null;
-    const instacartApiKey = process.env.INSTACART_API_KEY;
+      // Part 2: Instacart Integration
+      let instacartUrl = null;
+      // Use import.meta.env for custom variables in Vite
+      const instacartApiKey = (import.meta as any).env.VITE_INSTACART_API_KEY || process.env.INSTACART_API_KEY;
 
-    if (instacartApiKey && plan.groceryList.length > 0) {
-      try {
-        const instacartResponse = await fetch("https://connect.instacart.com/idp/v1/products/recipe", {
-          method: "POST",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${instacartApiKey}`
-          },
-          body: JSON.stringify({
-            title: `Weekly AI Meal Plan: ${plan.protocolName}`,
-            ingredients: plan.groceryList.map(item => ({
-              name: `${item.quantity} ${item.name}`
-            }))
-          })
-        });
+      if (instacartApiKey && plan.groceryList.length > 0) {
+        try {
+          const instacartResponse = await fetch("https://connect.instacart.com/idp/v1/products/recipe", {
+            method: "POST",
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${instacartApiKey}`
+            },
+            body: JSON.stringify({
+              title: `Weekly AI Meal Plan: ${plan.protocolName}`,
+              ingredients: plan.groceryList.map(item => ({
+                name: `${item.quantity} ${item.name}`
+              }))
+            })
+          });
 
-        if (instacartResponse.ok) {
-          const data = await instacartResponse.json();
-          // Assuming the response contains a field like 'recipe_url' or similar based on typical IDP responses
-          // The user mentioned "extract the generated shopping URL"
-          instacartUrl = data.recipe_url || data.url || data.shopping_url;
-          console.log("[Instacart] Shoppable link generated:", instacartUrl);
-        } else {
-          console.error("[Instacart] Failed to generate link:", await instacartResponse.text());
+          if (instacartResponse.ok) {
+            const data = await instacartResponse.json();
+            instacartUrl = data.recipe_url || data.url || data.shopping_url;
+            console.log("[Instacart] Shoppable link generated:", instacartUrl);
+          } else {
+            console.error("[Instacart] Failed to generate link:", await instacartResponse.text());
+          }
+        } catch (iError) {
+          console.error("[Instacart] Error during API call:", iError);
         }
-      } catch (iError) {
-        console.error("[Instacart] Error during API call:", iError);
       }
-    }
 
-    return { plan, instacartUrl };
+      return { plan, instacartUrl };
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", text);
+      throw new Error("The AI generated a plan but it was in an invalid format. Please try again.");
+    }
   } catch (error) {
-    console.error("Error generating diet plan:", error);
-    throw new Error("Failed to generate diet plan. Please ensure your image is clear and try again.");
+    console.error("Detailed Gemini Error:", error);
+    if (error instanceof Error) {
+      // Pass through the actual error message to help the user diagnose the issue
+      throw new Error(`AI Error: ${error.message}`);
+    }
+    throw new Error("Failed to generate diet plan. Please ensure your API keys are configured in Settings and try again.");
   }
 }

@@ -48,6 +48,7 @@ export default function PlannerView({
   const [microbiomeTarget, setMicrobiomeTarget] = useState<boolean>(true);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dietPlan, setDietPlan] = useState<DietPlanResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<{
     day: string;
     meal: {
@@ -107,7 +108,7 @@ export default function PlannerView({
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save plan:", error);
-      alert("Failed to save plan. Please try again.");
+      setError("Failed to save plan. Please check your connection and try again.");
     } finally {
       setIsSaving(false);
     }
@@ -147,6 +148,7 @@ export default function PlannerView({
 
   const startAnalysis = async (file: File, base64Image: string) => {
     setState('loading');
+    setError(null);
     const userPreferences: UserPreferences = {
       dietGoal, dietaryRestrictions, favoriteCuisine, age, weight, height, gender,
       activityLevel, exerciseDuration, exerciseIntensity, tdee, microbiomeTarget
@@ -164,7 +166,7 @@ export default function PlannerView({
     } catch (error) {
       console.error("Analysis failed:", error);
       setState('idle');
-      alert(error instanceof Error ? error.message : "An unexpected error occurred during analysis.");
+      setError(error instanceof Error ? error.message : "An unexpected error occurred during analysis.");
     }
   };
 
@@ -177,6 +179,7 @@ export default function PlannerView({
     setCheckoutStatus('idle');
     setImagePreview(null);
     setDietPlan(null);
+    setError(null);
     setSelectedMeal(null);
     setInstacartUrl(null);
   };
@@ -187,7 +190,23 @@ export default function PlannerView({
   };
 
   return (
-    <div className="pb-32">
+    <div className="pb-32 relative">
+      {/* Saved Plans Trigger */}
+      {user && (
+        <button 
+          onClick={() => setShowSavedPlans(true)}
+          className="fixed top-24 right-6 z-30 bg-surface/80 backdrop-blur-md border border-muted/10 p-3 rounded-2xl shadow-lg hover:scale-105 transition-all group"
+          title="View Saved Protocols"
+        >
+          <Bookmark className="w-5 h-5 text-primary group-hover:fill-primary transition-all" />
+          {savedPlans.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-secondary text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-surface">
+              {savedPlans.length}
+            </span>
+          )}
+        </button>
+      )}
+
       <main className="max-w-7xl mx-auto w-full px-6 md:px-12">
         <AnimatePresence mode="wait">
           {state === 'idle' && (
@@ -229,6 +248,17 @@ export default function PlannerView({
               <p className="text-muted text-lg mb-12 max-w-xl mx-auto">
                 Upload a photo of your fridge or pantry. Our AI will craft a clinical-grade meal plan based on your unique biology and current inventory.
               </p>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-error/10 border border-error/20 rounded-xl p-4 mb-8 text-error text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <Info className="w-4 h-4" />
+                  {error}
+                </motion.div>
+              )}
 
               {/* Personalization Panel */}
               <div className="max-w-2xl mx-auto mb-16 text-left bg-surface border border-muted/10 rounded-xl p-8 shadow-sm">
@@ -548,26 +578,34 @@ export default function PlannerView({
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest">Clinical Protocol V2</div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                       <button 
                         onClick={handleSavePlan}
                         disabled={isSaving || saveSuccess}
-                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-all min-w-[120px] ${
                           saveSuccess ? 'text-success' : 'text-muted hover:text-primary'
                         }`}
                       >
-                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bookmark className={`w-3 h-3 ${saveSuccess ? 'fill-success' : ''}`} />}
-                        {saveSuccess ? 'Plan Saved' : 'Save Plan'}
+                        {isSaving ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Bookmark className={`w-3 h-3 transition-transform ${saveSuccess ? 'fill-success scale-110' : 'group-hover:scale-110'}`} />
+                        )}
+                        <span>{saveSuccess ? 'Saved' : 'Save Plan'}</span>
                       </button>
                       <button 
                         onClick={handleSharePlan}
                         disabled={isSharing || shareSuccess}
-                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-all min-w-[120px] ${
                           shareSuccess ? 'text-accent' : 'text-muted hover:text-primary'
                         }`}
                       >
-                        {isSharing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Share2 className="w-3 h-3" />}
-                        {shareSuccess ? 'Link Copied' : 'Fork My Diet'}
+                        {isSharing ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Share2 className={`w-3 h-3 transition-transform ${shareSuccess ? 'scale-110' : 'group-hover:scale-110'}`} />
+                        )}
+                        <span>{shareSuccess ? 'Copied' : 'Share & Fork'}</span>
                       </button>
                     </div>
                   </div>
@@ -915,16 +953,16 @@ export default function PlannerView({
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
-            className="fixed bottom-20 left-4 right-4 bg-surface/80 backdrop-blur-lg border border-muted/10 py-4 px-6 rounded-2xl z-50 shadow-lg"
+            className="fixed bottom-32 left-4 right-4 bg-surface/90 backdrop-blur-xl border border-muted/20 py-4 px-6 rounded-3xl z-40 shadow-2xl"
           >
-            <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="hidden md:block">
-                <p className="text-sm font-medium">Protocol Ready</p>
-                <p className="text-xs text-muted">{dietPlan?.groceryList.length} items added</p>
+                <p className="text-sm font-medium tracking-tight">Protocol Ready</p>
+                <p className="text-[10px] text-muted uppercase tracking-widest font-bold">{dietPlan?.groceryList.length} items identified</p>
               </div>
-              <div className="flex gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-2 w-full md:w-auto">
                 {checkoutStatus === 'success' ? (
-                  <div className="flex-1 md:flex-none px-6 py-2.5 bg-success text-white rounded-lg text-xs font-bold flex items-center gap-2">
+                  <div className="flex-1 md:flex-none px-6 py-3 bg-success text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-success/20">
                     <Check className="w-4 h-4" />
                     Order Placed
                   </div>
@@ -932,36 +970,52 @@ export default function PlannerView({
                   <button 
                     onClick={handleCheckout}
                     disabled={checkoutStatus === 'processing'}
-                    className="flex-1 md:flex-none px-6 py-2.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="flex-1 md:flex-none px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                   >
                     {checkoutStatus === 'processing' ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <ShoppingCart className="w-4 h-4" />
                     )}
-                    {checkoutStatus === 'processing' ? 'Building...' : 'Instacart'}
+                    {checkoutStatus === 'processing' ? 'Processing...' : 'Instacart'}
                   </button>
                 )}
-                <button 
-                  onClick={handleSavePlan}
-                  disabled={isSaving || saveSuccess}
-                  className={`flex-1 md:flex-none px-6 py-2.5 border rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                    saveSuccess ? 'bg-success/10 border-success/20 text-success' : 'border-muted/20 hover:bg-background text-primary'
-                  }`}
-                >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bookmark className={`w-4 h-4 ${saveSuccess ? 'fill-success' : ''}`} />}
-                  {saveSuccess ? 'Saved' : 'Save'}
-                </button>
-                <button 
-                  onClick={handleSharePlan}
-                  disabled={isSharing || shareSuccess}
-                  className={`flex-1 md:flex-none px-6 py-2.5 border rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                    shareSuccess ? 'bg-accent/10 border-accent/20 text-accent' : 'border-muted/20 hover:bg-background text-primary'
-                  }`}
-                >
-                  {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className={`w-4 h-4 ${shareSuccess ? 'fill-accent' : ''}`} />}
-                  {shareSuccess ? 'Copied' : 'Fork'}
-                </button>
+                
+                <div className="flex gap-2 flex-1 md:flex-none">
+                  <button 
+                    onClick={handleSavePlan}
+                    disabled={isSaving || saveSuccess}
+                    className={`flex-1 md:flex-none px-5 py-3 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[100px] active:scale-[0.98] ${
+                      saveSuccess 
+                        ? 'bg-success/10 border-success/30 text-success' 
+                        : 'bg-background/50 border-muted/20 hover:bg-background text-primary'
+                    }`}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Bookmark className={`w-4 h-4 transition-transform ${saveSuccess ? 'fill-success scale-110' : ''}`} />
+                    )}
+                    <span>{saveSuccess ? 'Saved' : 'Save'}</span>
+                  </button>
+                  
+                  <button 
+                    onClick={handleSharePlan}
+                    disabled={isSharing || shareSuccess}
+                    className={`flex-1 md:flex-none px-5 py-3 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[100px] active:scale-[0.98] ${
+                      shareSuccess 
+                        ? 'bg-accent/10 border-accent/30 text-accent' 
+                        : 'bg-background/50 border-muted/20 hover:bg-background text-primary'
+                    }`}
+                  >
+                    {isSharing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share2 className={`w-4 h-4 transition-transform ${shareSuccess ? 'fill-accent scale-110' : ''}`} />
+                    )}
+                    <span>{shareSuccess ? 'Copied' : 'Fork'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </motion.footer>

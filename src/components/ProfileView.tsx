@@ -21,6 +21,7 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
   const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
   const [notifsEnabled, setNotifsEnabled] = useState(true);
   const [streakAlerts, setStreakAlerts] = useState(true);
+  const [globalNotifs, setGlobalNotifs] = useState(true);
 
   const handleUpdateProfile = async (e: FormEvent) => {
     e.preventDefault();
@@ -134,32 +135,79 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
 
         <h2 className="text-2xl font-medium mb-8">Notifications</h2>
 
-        <div className="space-y-4">
-          <div className="bg-surface border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
-            <div>
-              <p className="font-semibold">Meal Protocol Alerts</p>
-              <p className="text-xs text-muted">Get reminded when it's time for your next metabolic meal.</p>
+        <div className="space-y-6">
+          <div className="bg-surface border border-muted/10 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="font-semibold text-lg">Push Notifications</p>
+                <p className="text-xs text-muted">Master switch for all application alerts.</p>
+              </div>
+              <button 
+                onClick={() => setGlobalNotifs(!globalNotifs)}
+                className={`w-14 h-7 rounded-full transition-all duration-300 relative ${globalNotifs ? 'bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]' : 'bg-muted/20'}`}
+              >
+                <motion.div 
+                  animate={{ x: globalNotifs ? 28 : 4 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm" 
+                />
+              </button>
             </div>
-            <button 
-              onClick={() => setNotifsEnabled(!notifsEnabled)}
-              className={`w-12 h-6 rounded-full transition-colors relative ${notifsEnabled ? 'bg-secondary' : 'bg-muted/20'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${notifsEnabled ? 'left-7' : 'left-1'}`} />
-            </button>
           </div>
 
-          <div className="bg-surface border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
-            <div>
-              <p className="font-semibold">Streak Milestones</p>
-              <p className="text-xs text-muted">Celebrate when you hit new personal bests and milestones.</p>
-            </div>
-            <button 
-              onClick={() => setStreakAlerts(!streakAlerts)}
-              className={`w-12 h-6 rounded-full transition-colors relative ${streakAlerts ? 'bg-secondary' : 'bg-muted/20'}`}
+          <AnimatePresence>
+            {globalNotifs && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                className="space-y-4 overflow-hidden"
+              >
+                <div className="bg-surface/50 border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">Meal Protocol Alerts</p>
+                    <p className="text-xs text-muted">Get reminded when it's time for your next metabolic meal.</p>
+                  </div>
+                  <button 
+                    onClick={() => setNotifsEnabled(!notifsEnabled)}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${notifsEnabled ? 'bg-secondary' : 'bg-muted/20'}`}
+                  >
+                    <motion.div 
+                      animate={{ x: notifsEnabled ? 24 : 4 }}
+                      className="absolute top-1 w-4 h-4 bg-white rounded-full" 
+                    />
+                  </button>
+                </div>
+
+                <div className="bg-surface/50 border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">Streak Milestones</p>
+                    <p className="text-xs text-muted">Celebrate when you hit new personal bests and milestones.</p>
+                  </div>
+                  <button 
+                    onClick={() => setStreakAlerts(!streakAlerts)}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${streakAlerts ? 'bg-secondary' : 'bg-muted/20'}`}
+                  >
+                    <motion.div 
+                      animate={{ x: streakAlerts ? 24 : 4 }}
+                      className="absolute top-1 w-4 h-4 bg-white rounded-full" 
+                    />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!globalNotifs && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="p-8 text-center border-2 border-dashed border-muted/10 rounded-2xl"
             >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${streakAlerts ? 'left-7' : 'left-1'}`} />
-            </button>
-          </div>
+              <Bell className="w-8 h-8 text-muted/30 mx-auto mb-3" />
+              <p className="text-sm text-muted">All notifications are currently disabled.</p>
+            </motion.div>
+          )}
         </div>
       </motion.div>
     );

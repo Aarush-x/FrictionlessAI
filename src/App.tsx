@@ -101,7 +101,15 @@ function AppShell() {
       {/* Main Content Area with Persistence */}
       <main className="flex-1 relative">
         <div className={activeTab === 'home' ? 'block' : 'hidden'}>
-          <HomeView user={user} stats={stats} onNavigate={setActiveTab} />
+          <HomeView 
+            user={user} 
+            stats={stats} 
+            savedPlans={savedPlans}
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo(0, 0);
+            }} 
+          />
         </div>
         
         <div className={activeTab === 'planner' ? 'block' : 'hidden'}>
@@ -125,8 +133,8 @@ function AppShell() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4">
-        <div className="max-w-md mx-auto bg-surface/70 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl flex items-center justify-around p-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4 pointer-events-none">
+        <div className="max-w-md mx-auto bg-surface/70 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl flex items-center justify-around p-2 pointer-events-auto">
           <TabButton 
             active={activeTab === 'home'} 
             onClick={() => setActiveTab('home')}

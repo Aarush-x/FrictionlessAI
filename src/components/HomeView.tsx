@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { motion } from 'motion/react';
-import { Home, Zap, Flame, Trophy, ChevronRight, Activity, Leaf, Crown, User as UserIcon, Share2, Loader2, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Home, Zap, Flame, Trophy, ChevronRight, Activity, Leaf, Crown, User as UserIcon, Share2, Loader2, Sparkles, Bookmark, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { UserStats } from '../types';
 import html2canvas from 'html2canvas';
@@ -8,6 +8,7 @@ import html2canvas from 'html2canvas';
 interface HomeViewProps {
   user: User | null;
   stats: UserStats | null;
+  savedPlans: any[];
   onNavigate: (tab: 'home' | 'planner' | 'profile') => void;
 }
 
@@ -27,8 +28,9 @@ const MOCK_LEADERBOARD: LeaderboardItem[] = [
   { name: 'Jordan Smith', streak: 10, score: 82, avatar: 'https://i.pravatar.cc/150?u=jordan' },
 ];
 
-export default function HomeView({ user, stats, onNavigate }: HomeViewProps) {
+export default function HomeView({ user, stats, savedPlans, onNavigate }: HomeViewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [expandedInsight, setExpandedInsight] = useState<number | null>(null);
   const storyRef = useRef<HTMLDivElement>(null);
 
   const currentStreak = stats?.currentStreak || 0;
@@ -96,7 +98,7 @@ export default function HomeView({ user, stats, onNavigate }: HomeViewProps) {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 md:p-12 max-w-4xl mx-auto pb-32"
+      className="relative z-10 p-6 md:p-12 max-w-4xl mx-auto pb-32"
     >
       {/* Hidden IG Story Graphic (1080x1920) */}
       <div className="fixed left-[-9999px] top-0 pointer-events-none">
@@ -349,44 +351,173 @@ export default function HomeView({ user, stats, onNavigate }: HomeViewProps) {
         </div>
       </section>
 
+      {/* Recent Protocols */}
+      {savedPlans.length > 0 && (
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-medium">Recent Protocols</h3>
+            <button 
+              onClick={() => onNavigate('planner')}
+              className="text-xs font-bold uppercase tracking-widest text-secondary hover:underline"
+            >
+              View All
+            </button>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
+            {savedPlans.slice(0, 5).map((plan) => (
+              <div 
+                key={plan.id}
+                onClick={() => onNavigate('planner')}
+                className="flex-none w-64 bg-surface border border-muted/10 rounded-2xl p-5 hover:border-muted/30 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-muted">
+                    {new Date(plan.createdAt).toLocaleDateString()}
+                  </span>
+                  <Bookmark className="w-3 h-3 text-secondary fill-secondary" />
+                </div>
+                <h4 className="text-sm font-medium mb-3 group-hover:text-primary transition-colors line-clamp-1">
+                  {plan.protocolName}
+                </h4>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Activity className="w-3 h-3 text-secondary" />
+                    <span className="text-[10px] text-muted">{plan.healthMetrics.dailyFiber} Fiber</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Leaf className="w-3 h-3 text-success" />
+                    <span className="text-[10px] text-muted">{plan.healthMetrics.uniquePlantsUsed.length} Plants</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Recent Insights */}
       <section className="mb-12">
         <h3 className="text-lg font-medium mb-6">Recent Insights</h3>
         <div className="space-y-4">
           {[
-            { title: 'Microbiome Diversity', value: '+12%', icon: Leaf, color: 'text-success' },
-            { title: 'Average Daily Fiber', value: '42g', icon: Activity, color: 'text-secondary' },
-            { title: 'Metabolic Efficiency', value: 'High', icon: Zap, color: 'text-accent' },
+            { 
+              title: 'Microbiome Diversity', 
+              value: '+12%', 
+              pastValue: '+4%',
+              icon: Leaf, 
+              color: 'text-success',
+              description: 'Increased plant variety from 12 to 28 species. Your gut microbiome is showing higher resilience and metabolic flexibility.',
+              metric: 'Species Count'
+            },
+            { 
+              title: 'Average Daily Fiber', 
+              value: '42g', 
+              pastValue: '22g',
+              icon: Activity, 
+              color: 'text-secondary',
+              description: 'Significant shift from processed grains to whole legumes and tubers. This is supporting better blood glucose stability.',
+              metric: 'Grams/Day'
+            },
+            { 
+              title: 'Metabolic Efficiency', 
+              value: 'High', 
+              pastValue: 'Moderate',
+              icon: Zap, 
+              color: 'text-accent',
+              description: 'Improved insulin sensitivity through consistent protein-pacing and optimized meal timing.',
+              metric: 'Efficiency Level'
+            },
           ].map((insight, i) => (
-            <div key={i} className="bg-surface border border-muted/10 rounded-xl p-4 flex items-center justify-between hover:border-muted/30 transition-colors cursor-pointer group">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full bg-background flex items-center justify-center ${insight.color} group-hover:scale-110 transition-transform`}>
-                  <insight.icon className="w-5 h-5" />
+            <div 
+              key={i} 
+              onClick={() => setExpandedInsight(expandedInsight === i ? null : i)}
+              className="bg-surface border border-muted/10 rounded-2xl overflow-hidden hover:border-muted/30 transition-all cursor-pointer group"
+            >
+              <div className="p-5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl bg-background flex items-center justify-center ${insight.color} group-hover:scale-110 transition-transform`}>
+                    <insight.icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block">{insight.title}</span>
+                    <span className="text-[10px] text-muted uppercase tracking-widest font-bold">Metabolic Indicator</span>
+                  </div>
                 </div>
-                <span className="font-medium">{insight.title}</span>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className={`text-lg font-bold block ${insight.color}`}>{insight.value}</span>
+                    <div className="flex items-center gap-1 justify-end">
+                      <TrendingUp className="w-3 h-3 text-success" />
+                      <span className="text-[10px] text-success font-bold">Improving</span>
+                    </div>
+                  </div>
+                  <ChevronRight className={`w-5 h-5 text-muted transition-transform duration-300 ${expandedInsight === i ? 'rotate-90' : ''}`} />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`font-bold ${insight.color}`}>{insight.value}</span>
-                <ChevronRight className="w-4 h-4 text-muted group-hover:translate-x-1 transition-transform" />
-              </div>
+
+              <AnimatePresence>
+                {expandedInsight === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="border-t border-muted/5 bg-muted/5"
+                  >
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-background/50 rounded-xl p-4 border border-muted/5">
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Current</p>
+                          <p className={`text-2xl font-bold ${insight.color}`}>{insight.value}</p>
+                        </div>
+                        <div className="bg-background/50 rounded-xl p-4 border border-muted/5">
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Previous Month</p>
+                          <p className="text-2xl font-bold text-muted/60">{insight.pastValue}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
+                          <ArrowUpRight className="w-3 h-3" />
+                          Clinical Context
+                        </h4>
+                        <p className="text-sm text-muted leading-relaxed">
+                          {insight.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 border-t border-muted/5 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Primary Metric: {insight.metric}</span>
+                        <button className="text-[10px] font-bold text-secondary uppercase tracking-widest hover:underline">View Full Report</button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))}
         </div>
       </section>
 
-      <div className="bg-primary rounded-2xl p-8 text-white relative overflow-hidden shadow-lg">
-        <div className="relative z-10">
-          <h3 className="text-xl font-medium mb-2">Ready for your next scan?</h3>
-          <p className="text-white/60 text-sm mb-6">Keep your streak alive by logging your fridge inventory.</p>
+      <div className="bg-primary rounded-3xl p-10 text-white relative overflow-hidden shadow-2xl border border-white/5">
+        <Zap className="absolute -right-4 -bottom-4 w-40 h-40 text-white/10 rotate-12 pointer-events-none" />
+        <div className="relative z-20">
+          <h3 className="text-2xl font-medium mb-3">Ready for your next scan?</h3>
+          <p className="text-white/70 text-base mb-8 max-w-md">Keep your streak alive by logging your fridge inventory. Our AI is ready to recalibrate your protocol.</p>
           <button 
-            onClick={() => onNavigate('planner')}
-            className="bg-white text-primary px-8 py-3 rounded-xl font-bold text-sm hover:bg-white/90 transition-colors shadow-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate('planner');
+            }}
+            className="group relative z-30 bg-white text-primary px-10 py-4 rounded-2xl font-bold text-base hover:bg-white/90 active:scale-95 transition-all shadow-xl cursor-pointer flex items-center gap-3"
           >
-            Go to Planner
+            <span>Go to Planner</span>
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-        <Zap className="absolute -right-4 -bottom-4 w-32 h-32 text-white/10 rotate-12" />
       </div>
+
+      {/* Extra spacer to ensure content clears the bottom nav bar completely */}
+      <div className="h-20" />
     </motion.div>
   );
 }
