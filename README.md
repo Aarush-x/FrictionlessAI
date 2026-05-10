@@ -1,20 +1,42 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Frictionless AI Dietician
 
-# Run and deploy your AI Studio app
+A premium, minimalist AI-powered dietician that generates personalized meal plans by analyzing photos of your refrigerator and pantry. This application leverages advanced computer vision and generative AI to simplify healthy eating and microbiome optimization.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/f6116d53-5073-47f8-ae00-15aa912a9b9f
+- Ingredient Recognition: Upload or take a photo of your fridge to automatically identify available ingredients.
+- Intelligent Meal Planning: Generates science-backed 3-day meal protocols using the Gemini 3 Flash model.
+- Shoppable Recipes: Integrates with Instacart to create checkout links for missing ingredients.
+- Health Personalization: Tailors plans based on Health Goals, Dietary Restrictions, and Total Daily Energy Expenditure (TDEE).
+- Microbiome Metrics: Tracks daily fiber intake and plant diversity to promote gut health.
+- Plan Persistence: Save, share, and track your history with a Firebase-backed user dashboard.
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- Framework: React 19 with Vite
+- Language: TypeScript
+- Styling: Tailwind CSS
+- Animation: Motion (formerly Framer Motion)
+- Authentication: Firebase Auth (Google Login)
+- Database: Cloud Firestore
+- AI Engine: Google Gemini API (@google/genai)
+- Icons: Lucide React
 
+## Getting Started
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Prerequisites
+
+- Node.js (Latest LTS recommended)
+- Firebase Project
+- Google Gemini API Key
+- Instacart API Key (Optional)
+
+### Environment Setup
+
+Create a `.env` file in the root directory and populate it with your credentials:
+
+```env
+# Gemini AI
+GEMINI_API_KEY=your_gemini_key
+
+# Firebase Configuration
