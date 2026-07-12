@@ -29,6 +29,9 @@ function AppShell() {
   const [savedPlans, setSavedPlans] = useState<any[]>([]);
 
   useEffect(() => {
+    // Seed demo users asynchronously for friend requests
+    firebaseService.seedDemoUsers();
+
     const unsubscribe = firebaseService.onAuthChange((user) => {
       setUser(user);
       setIsAuthReady(true);
@@ -61,8 +64,9 @@ function AppShell() {
   const handleSignIn = async () => {
     try {
       await firebaseService.signIn();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign in failed:", error);
+      alert(`Sign in failed: ${error.message || error.code || error}`);
     }
   };
 
@@ -79,7 +83,7 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-background text-primary flex flex-col">
       {/* Header */}
-      <header className="py-6 px-6 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-md z-40 border-b border-muted/5">
+      <header className="py-4 px-6 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-md z-40 border-b border-muted/5">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
             <div className="w-3 h-3 bg-white rounded-full" />
@@ -87,15 +91,38 @@ function AppShell() {
           <span className="font-medium tracking-tight text-lg">Frictionless AI</span>
         </div>
         
-        {isAuthReady && !user && activeTab !== 'profile' && (
-          <button 
-            onClick={handleSignIn}
-            className="text-xs font-bold uppercase tracking-widest text-primary bg-surface border border-muted/10 px-4 py-2 rounded-lg flex items-center gap-2"
-          >
-            <LogIn className="w-3 h-3" />
-            Sign In
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          <nav className="bg-surface/50 border border-muted/10 rounded-2xl flex items-center p-1">
+            <TabButton 
+              active={activeTab === 'home'} 
+              onClick={() => setActiveTab('home')}
+              icon={Home}
+              label="Home"
+            />
+            <TabButton 
+              active={activeTab === 'planner'} 
+              onClick={() => setActiveTab('planner')}
+              icon={Zap}
+              label="Planner"
+            />
+            <TabButton 
+              active={activeTab === 'profile'} 
+              onClick={() => setActiveTab('profile')}
+              icon={UserIcon}
+              label="Profile"
+            />
+          </nav>
+
+          {isAuthReady && !user && activeTab !== 'profile' && (
+            <button 
+              onClick={handleSignIn}
+              className="text-xs font-bold uppercase tracking-widest text-primary bg-surface border border-muted/10 px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <LogIn className="w-3 h-3" />
+              Sign In
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Main Content Area with Persistence */}
@@ -131,30 +158,6 @@ function AppShell() {
           />
         </div>
       </main>
-
-      {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4 pointer-events-none">
-        <div className="max-w-md mx-auto bg-surface/70 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl flex items-center justify-around p-2 pointer-events-auto">
-          <TabButton 
-            active={activeTab === 'home'} 
-            onClick={() => setActiveTab('home')}
-            icon={Home}
-            label="Home"
-          />
-          <TabButton 
-            active={activeTab === 'planner'} 
-            onClick={() => setActiveTab('planner')}
-            icon={Zap}
-            label="Planner"
-          />
-          <TabButton 
-            active={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')}
-            icon={UserIcon}
-            label="Profile"
-          />
-        </div>
-      </nav>
     </div>
   );
 }
@@ -170,18 +173,18 @@ function TabButton({ active, onClick, icon: Icon, label }: TabButtonProps) {
   return (
     <button 
       onClick={onClick}
-      className={`relative flex flex-col items-center gap-1 px-6 py-2 rounded-2xl transition-all ${
+      className={`relative flex flex-row items-center gap-2 px-4 py-1.5 rounded-xl transition-all ${
         active ? 'text-primary' : 'text-muted hover:text-primary/60'
       }`}
     >
       {active && (
         <motion.div 
           layoutId="activeTab"
-          className="absolute inset-0 bg-primary/5 rounded-2xl"
+          className="absolute inset-0 bg-primary/5 rounded-xl"
           transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
         />
       )}
-      <Icon className={`w-5 h-5 transition-transform ${active ? 'scale-110' : 'scale-100'}`} />
+      <Icon className={`w-4 h-4 transition-transform ${active ? 'scale-110' : 'scale-100'}`} />
       <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
     </button>
   );

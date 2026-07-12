@@ -356,10 +356,7 @@ export default function PlannerView({
                       <p className="text-xl font-medium">{stats.longestStreak} Days</p>
                     </div>
                   </div>
-                  <div className="ml-auto flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-success bg-success/5 px-3 py-1.5 rounded-full">
-                    <Zap className="w-3 h-3" />
-                    Metabolic Elite
-                  </div>
+
                 </motion.div>
               )}
 
@@ -648,23 +645,13 @@ export default function PlannerView({
                   {/* Dynamic Plant Cloud */}
                   <div className="flex-1 flex flex-wrap gap-2 content-start overflow-y-auto scrollbar-thin pr-2 max-h-32 mb-6">
                     {dietPlan.healthMetrics.uniquePlantsUsed.map((plant, i) => {
-                      const sizes = ['text-[10px]', 'text-[11px]', 'text-[12px]'];
-                      const colors = [
-                        'bg-success/5 text-success border-success/10', 
-                        'bg-secondary/5 text-secondary border-secondary/10', 
-                        'bg-accent/5 text-accent border-accent/10', 
-                        'bg-primary/5 text-primary border-primary/10'
-                      ];
-                      const size = sizes[i % sizes.length];
-                      const color = colors[(i * 7) % colors.length];
-                      
                       return (
                         <motion.span 
                           key={i}
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ delay: 0.5 + (i * 0.03) }}
-                          className={`${size} ${color} px-2.5 py-1 rounded-full font-medium border whitespace-nowrap`}
+                          className="text-[11px] bg-surface border border-muted/20 shadow-[0_1px_2px_rgba(0,0,0,0.03)] text-primary px-3 py-1.5 rounded-full font-semibold whitespace-nowrap tracking-wide"
                         >
                           {plant}
                         </motion.span>
@@ -946,81 +933,7 @@ export default function PlannerView({
         )}
       </AnimatePresence>
 
-      {/* Sticky Footer Action */}
-      <AnimatePresence>
-        {state === 'results' && (
-          <motion.footer
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-32 left-4 right-4 bg-surface/90 backdrop-blur-xl border border-muted/20 py-4 px-6 rounded-3xl z-40 shadow-2xl"
-          >
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="hidden md:block">
-                <p className="text-sm font-medium tracking-tight">Protocol Ready</p>
-                <p className="text-[10px] text-muted uppercase tracking-widest font-bold">{dietPlan?.groceryList.length} items identified</p>
-              </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                {checkoutStatus === 'success' ? (
-                  <div className="flex-1 md:flex-none px-6 py-3 bg-success text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-success/20">
-                    <Check className="w-4 h-4" />
-                    Order Placed
-                  </div>
-                ) : (
-                  <button 
-                    onClick={handleCheckout}
-                    disabled={checkoutStatus === 'processing'}
-                    className="flex-1 md:flex-none px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
-                  >
-                    {checkoutStatus === 'processing' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ShoppingCart className="w-4 h-4" />
-                    )}
-                    {checkoutStatus === 'processing' ? 'Processing...' : 'Instacart'}
-                  </button>
-                )}
-                
-                <div className="flex gap-2 flex-1 md:flex-none">
-                  <button 
-                    onClick={handleSavePlan}
-                    disabled={isSaving || saveSuccess}
-                    className={`flex-1 md:flex-none px-5 py-3 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[100px] active:scale-[0.98] ${
-                      saveSuccess 
-                        ? 'bg-success/10 border-success/30 text-success' 
-                        : 'bg-background/50 border-muted/20 hover:bg-background text-primary'
-                    }`}
-                  >
-                    {isSaving ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Bookmark className={`w-4 h-4 transition-transform ${saveSuccess ? 'fill-success scale-110' : ''}`} />
-                    )}
-                    <span>{saveSuccess ? 'Saved' : 'Save'}</span>
-                  </button>
-                  
-                  <button 
-                    onClick={handleSharePlan}
-                    disabled={isSharing || shareSuccess}
-                    className={`flex-1 md:flex-none px-5 py-3 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[100px] active:scale-[0.98] ${
-                      shareSuccess 
-                        ? 'bg-accent/10 border-accent/30 text-accent' 
-                        : 'bg-background/50 border-muted/20 hover:bg-background text-primary'
-                    }`}
-                  >
-                    {isSharing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Share2 className={`w-4 h-4 transition-transform ${shareSuccess ? 'fill-accent scale-110' : ''}`} />
-                    )}
-                    <span>{shareSuccess ? 'Copied' : 'Fork'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </motion.footer>
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }

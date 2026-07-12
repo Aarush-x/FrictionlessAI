@@ -1,7 +1,8 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Settings, Shield, Bell, CreditCard, LogOut, ChevronRight, Activity, Zap, ArrowLeft, Check, Camera, Loader2 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import * as firebaseService from '../services/firebaseService';
 
 interface ProfileViewProps {
@@ -15,22 +16,97 @@ type SubView = 'none' | 'personal' | 'notifications';
 export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewProps) {
   const [activeSubView, setActiveSubView] = useState<SubView>('none');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Form states
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
+  const [username, setUsername] = useState('');
   const [notifsEnabled, setNotifsEnabled] = useState(true);
   const [streakAlerts, setStreakAlerts] = useState(true);
   const [globalNotifs, setGlobalNotifs] = useState(true);
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (JPEG/PNG/WEBP)');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Please select an image smaller than 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setPhotoURL(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  useEffect(() => {
+    if (user) {
+      const fetchUserProfile = async () => {
+        try {
+          const snap = await getDoc(doc(firebaseService.db, 'users', user.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            setUsername(data.username || '');
+            if (data.displayName) {
+              setDisplayName(data.displayName);
+            }
+            if (data.photoURL) {
+              setPhotoURL(data.photoURL);
+            }
+          } else {
+            if (user.displayName) setDisplayName(user.displayName);
+            if (user.photoURL) setPhotoURL(user.photoURL);
+          }
+        } catch (e) {
+          console.error("Failed to load profile data from Firestore", e);
+          if (user.displayName) setDisplayName(user.displayName);
+          if (user.photoURL) setPhotoURL(user.photoURL);
+        }
+      };
+      fetchUserProfile();
+    }
+  }, [user]);
 
   const handleUpdateProfile = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
       await firebaseService.updateUserProfile(displayName, photoURL);
+      if (username.trim()) {
+        await firebaseService.claimUsername(user!.uid, username, displayName, photoURL);
+      }
       setActiveSubView('none');
     } catch (error) {
       console.error("Failed to update profile:", error);
+      alert(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setIsSaving(false);
     }
@@ -55,8 +131,23 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
 
         <form onSubmit={handleUpdateProfile} className="space-y-6">
           <div className="flex flex-col items-center mb-8">
-            <div className="relative group cursor-pointer">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-muted/20">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              accept="image/jpeg,image/png,image/webp" 
+              className="hidden" 
+            />
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative group cursor-pointer w-28 h-28 rounded-full border-2 border-dashed flex items-center justify-center transition-all ${
+                isDragging ? 'border-primary bg-primary/5 scale-105' : 'border-muted/20 hover:border-primary/50 hover:bg-muted/5'
+              }`}
+            >
+              <div className="w-24 h-24 rounded-full overflow-hidden">
                 {photoURL ? (
                   <img src={photoURL} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
@@ -65,11 +156,12 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
                   </div>
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white" />
+              <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-[10px] font-bold uppercase tracking-wider gap-1">
+                <Camera className="w-5 h-5" />
+                <span>Upload</span>
               </div>
             </div>
-            <p className="text-xs text-muted mt-2">Tap to change photo URL</p>
+            <p className="text-[10px] text-muted mt-2 font-medium">Click, drag, or drop a JPEG/PNG/WEBP to change profile photo</p>
           </div>
 
           <div className="space-y-2">
@@ -84,15 +176,19 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-muted px-1">Photo URL</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-muted px-1">Username</label>
             <input 
               type="text" 
-              value={photoURL}
-              onChange={(e) => setPhotoURL(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
               className="w-full bg-surface border border-muted/10 rounded-xl p-4 text-sm focus:outline-none focus:border-primary transition-colors"
-              placeholder="https://example.com/photo.jpg"
+              placeholder="Choose a unique username"
+              required
             />
+            <p className="text-[10px] text-muted px-1">Alphanumeric and underscores (3-15 chars). Used to search and add friends.</p>
           </div>
+
+
 
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-widest text-muted px-1">Email Address</label>
@@ -137,10 +233,10 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
 
         <div className="space-y-6">
           <div className="bg-surface border border-muted/10 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-lg">Push Notifications</p>
-                <p className="text-xs text-muted">Master switch for all application alerts.</p>
+                <p className="text-xs text-muted">Receive updates, streak reminders, and protocol notifications.</p>
               </div>
               <button 
                 onClick={() => setGlobalNotifs(!globalNotifs)}
@@ -154,60 +250,6 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
               </button>
             </div>
           </div>
-
-          <AnimatePresence>
-            {globalNotifs && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0, y: -10 }}
-                animate={{ opacity: 1, height: 'auto', y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -10 }}
-                className="space-y-4 overflow-hidden"
-              >
-                <div className="bg-surface/50 border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">Meal Protocol Alerts</p>
-                    <p className="text-xs text-muted">Get reminded when it's time for your next metabolic meal.</p>
-                  </div>
-                  <button 
-                    onClick={() => setNotifsEnabled(!notifsEnabled)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${notifsEnabled ? 'bg-secondary' : 'bg-muted/20'}`}
-                  >
-                    <motion.div 
-                      animate={{ x: notifsEnabled ? 24 : 4 }}
-                      className="absolute top-1 w-4 h-4 bg-white rounded-full" 
-                    />
-                  </button>
-                </div>
-
-                <div className="bg-surface/50 border border-muted/10 rounded-2xl p-6 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">Streak Milestones</p>
-                    <p className="text-xs text-muted">Celebrate when you hit new personal bests and milestones.</p>
-                  </div>
-                  <button 
-                    onClick={() => setStreakAlerts(!streakAlerts)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${streakAlerts ? 'bg-secondary' : 'bg-muted/20'}`}
-                  >
-                    <motion.div 
-                      animate={{ x: streakAlerts ? 24 : 4 }}
-                      className="absolute top-1 w-4 h-4 bg-white rounded-full" 
-                    />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {!globalNotifs && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-8 text-center border-2 border-dashed border-muted/10 rounded-2xl"
-            >
-              <Bell className="w-8 h-8 text-muted/30 mx-auto mb-3" />
-              <p className="text-sm text-muted">All notifications are currently disabled.</p>
-            </motion.div>
-          )}
         </div>
       </motion.div>
     );
@@ -232,19 +274,20 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
 
       <header className="mb-12 flex flex-col items-center text-center pt-8">
         <div className="w-24 h-24 bg-muted/10 rounded-full flex items-center justify-center border-2 border-muted/20 mb-4 shadow-sm">
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
+          {photoURL || user?.photoURL ? (
+            <img src={photoURL || user.photoURL || ''} alt="Profile" className="w-full h-full rounded-full object-cover" />
           ) : (
             <User className="w-12 h-12 text-muted" />
           )}
         </div>
         <div>
-          <h1 className="text-3xl font-medium mb-1">{user?.displayName || 'Guest User'}</h1>
-          <p className="text-muted text-sm">{user?.email || 'Sign in to sync your data'}</p>
+          <h1 className="text-3xl font-medium mb-1">{displayName || user?.displayName || 'Guest User'}</h1>
+          {username && <p className="text-secondary text-sm font-semibold mb-1">@{username}</p>}
+          <p className="text-muted text-xs">{user?.email || 'Sign in to sync your data'}</p>
         </div>
       </header>
 
-      {!user ? (
+      {!user && (
         <div className="bg-surface border border-muted/10 rounded-2xl p-8 text-center mb-12">
           <Zap className="w-12 h-12 text-secondary mx-auto mb-4" />
           <h3 className="text-xl font-medium mb-2">Unlock Premium Features</h3>
@@ -255,19 +298,6 @@ export default function ProfileView({ user, onSignOut, onSignIn }: ProfileViewPr
           >
             Sign In with Google
           </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 mb-12">
-          <div className="bg-surface border border-muted/10 rounded-xl p-4 flex flex-col items-center text-center">
-            <Activity className="w-5 h-5 text-secondary mb-2" />
-            <span className="text-[10px] font-bold uppercase text-muted tracking-widest">Metabolic Type</span>
-            <span className="text-sm font-medium">Efficient Burner</span>
-          </div>
-          <div className="bg-surface border border-muted/10 rounded-xl p-4 flex flex-col items-center text-center">
-            <Zap className="w-5 h-5 text-accent mb-2" />
-            <span className="text-[10px] font-bold uppercase text-muted tracking-widest">Plan Level</span>
-            <span className="text-sm font-medium">Pro Clinical</span>
-          </div>
         </div>
       )}
 
