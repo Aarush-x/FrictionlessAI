@@ -499,6 +499,50 @@ export const getFriendLeaderboardStats = async (friendUids: string[]) => {
 };
 
 /**
+ * Fetches all registered users from Firestore to build a live global leaderboard
+ */
+export const getGlobalLeaderboard = async () => {
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    const leaderboard: any[] = [];
+    for (const userDoc of snap.docs) {
+      const userData = userDoc.data();
+      if (userData.username) {
+        const statsRef = doc(db, 'users', userDoc.id, 'stats', 'current');
+        const statsSnap = await getDoc(statsRef);
+        const stats = statsSnap.exists() ? statsSnap.data() : { currentStreak: 0, metabolicScore: 75 };
+        leaderboard.push({
+          uid: userDoc.id,
+          username: userData.username,
+          name: userData.displayName || 'Anonymous',
+          avatar: userData.photoURL || '',
+          streak: stats.currentStreak || 0,
+          score: stats.metabolicScore || 75
+        });
+      }
+    }
+    return leaderboard;
+  } catch (error) {
+    console.error("Error fetching global leaderboard:", error);
+    return [];
+  }
+};
+
+/**
+ * Updates the user's metabolic score in Firestore
+ */
+export const updateUserMetabolicScore = async (userId: string, score: number) => {
+  try {
+    const statsRef = doc(db, 'users', userId, 'stats', 'current');
+    await setDoc(statsRef, {
+      metabolicScore: score
+    }, { merge: true });
+  } catch (error) {
+    console.error("Error updating metabolic score:", error);
+  }
+};
+
+/**
  * Seeds mockup users for searchable demos (e.g. huey, sarah, marcus, elena)
  */
 export const seedDemoUsers = async () => {

@@ -241,7 +241,7 @@ export default function PlannerView({
                 </motion.div>
               )}
               <h1 className="text-5xl md:text-7xl font-medium leading-tight mb-6">
-                Good morning. <br />
+                Hello there. <br />
                 <span className="text-muted">Let's see what we're working with.</span>
               </h1>
               
@@ -287,7 +287,7 @@ export default function PlannerView({
                   <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-muted mb-4 block">Dietary Restrictions</label>
                     <div className="flex flex-wrap gap-2">
-                      {['Vegan', 'Keto', 'Gluten-Free', 'Dairy-Free', 'Paleo', 'Low Carb'].map((diet) => (
+                      {['Vegan', 'Vegetarian', 'Keto', 'Gluten-Free', 'Dairy-Free', 'Paleo', 'Low Carb'].map((diet) => (
                         <button
                           key={diet}
                           onClick={() => toggleRestriction(diet)}

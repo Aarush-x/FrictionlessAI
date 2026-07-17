@@ -13,39 +13,56 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Domain Validators
-    // ===============================================================
-    function isValidMealPlan(data) {
-      return data.userId is string &&
-             data.protocolName is string &&
-             data.createdAt is string;
-    }
-
-    function isValidUserStats(data) {
-      return data.currentStreak is number &&
-             data.longestStreak is number;
-    }
-
-    // ===============================================================
     // Rules
     // ===============================================================
+    
+    // User profile documents
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Saved plans - strictly private
     match /users/{userId}/plans/{planId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidMealPlan(request.resource.data);
+      allow create: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
+    // Stats - public reading for leaderboard, private writing
     match /users/{userId}/stats/current {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId) && isValidUserStats(request.resource.data);
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
     }
 
+    // Incoming friend requests - recipient manages, senders can create
+    match /users/{userId}/incomingRequests/{senderId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isAuthenticated() && request.auth.uid == senderId;
+    }
+
+    // Outgoing friend requests - sender manages, recipient can read
+    match /users/{userId}/outgoingRequests/{receiverId} {
+      allow read, write: if isOwner(userId) || (isAuthenticated() && request.auth.uid == receiverId);
+    }
+
+    // Friends list - only owner can read/write, but friends can write when accepting
+    match /users/{userId}/friends/{friendId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) || (isAuthenticated() && request.auth.uid == friendId);
+    }
+
+    // Username mappings - public checking and registration
+    match /usernames/{username} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Shared plans - public read, owner write
     match /sharedPlans/{shareId} {
-      allow read: if true; // Publicly accessible
-      allow create: if isAuthenticated() && 
-                      isValidMealPlan(request.resource.data) && 
-                      request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }
 }

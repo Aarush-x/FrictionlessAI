@@ -95,24 +95,9 @@ export default function HomeView({ user, stats, savedPlans, onNavigate }: HomeVi
         const outgoing = await firebaseService.getOutgoingRequests(user.uid);
         setOutgoingRequests(outgoing);
 
-        // Get friends list
-        const friends = await firebaseService.getFriends(user.uid);
-        if (friends.length > 0) {
-          const friendUids = friends.map(f => f.uid);
-          const friendStats = await firebaseService.getFriendLeaderboardStats(friendUids);
-          const activeFriends = friends.map(f => ({
-            name: f.displayName,
-            avatar: f.avatar,
-            streak: friendStats[f.uid]?.streak || 0,
-            score: friendStats[f.uid]?.score || 75,
-            uid: f.uid,
-            username: f.username
-          }));
-          setFriendsList(activeFriends);
-        } else {
-          // If Firestore is empty, keep mockup list for presentation so it doesn't look empty
-          setFriendsList(MOCK_LEADERBOARD);
-        }
+        // Get global leaderboard from Firestore (includes demo users and real users)
+        const leaderboard = await firebaseService.getGlobalLeaderboard();
+        setFriendsList(leaderboard);
       } catch (error) {
         console.error("Failed to load social data", error);
       }
@@ -243,7 +228,7 @@ export default function HomeView({ user, stats, savedPlans, onNavigate }: HomeVi
   // Standard target is 25+ unique plants for a perfect score component.
   const avgPlants = savedPlans.length > 0
     ? (savedPlans.reduce((sum, p) => sum + (p.healthMetrics?.uniquePlantsUsed?.length || 0), 0) / savedPlans.length)
-    : 18; // Default to 18 species if no plans saved yet (aligns with screenshot)
+    : (user ? 0 : 18); // Default to 18 for guest preview, 0 for logged-in user with no data
   const diversityScore = Math.min((avgPlants / 25) * 100, 100);
 
   // 2. Average Daily Fiber: average fiber from savedPlans.
@@ -253,16 +238,27 @@ export default function HomeView({ user, stats, savedPlans, onNavigate }: HomeVi
         const f = parseInt(p.healthMetrics?.dailyFiber || '0');
         return sum + (isNaN(f) ? 0 : f);
       }, 0) / savedPlans.length)
-    : 42; // Default to 42g if no plans saved yet (aligns with screenshot)
+    : (user ? 0 : 42); // Default to 42 for guest preview, 0 for logged-in user with no data
   const fiberScore = Math.min((avgFiber / 45) * 100, 100);
 
   // 3. Metabolic Efficiency: derived from streak consistency and default baseline.
   // Base efficiency starts at 75% and increases by 5% per streak day up to 100%.
   const streakBonus = Math.min(currentStreak * 5, 25);
-  const efficiencyScore = Math.min(75 + streakBonus, 100);
+  const efficiencyScore = user 
+    ? (currentStreak > 0 ? Math.min(75 + streakBonus, 100) : 0)
+    : Math.min(75 + streakBonus, 100);
 
   // Combined Metabolic Score (Weighted: 40% Diversity, 30% Fiber, 30% Adherence/Efficiency)
-  const metabolicScore = Math.round((diversityScore * 0.4) + (fiberScore * 0.3) + (efficiencyScore * 0.3));
+  const metabolicScore = (diversityScore > 0 || fiberScore > 0 || efficiencyScore > 0)
+    ? Math.round((diversityScore * 0.4) + (fiberScore * 0.3) + (efficiencyScore * 0.3))
+    : 0;
+
+  // Synchronize calculated metabolicScore to Firestore stats
+  useEffect(() => {
+    if (user && metabolicScore > 0) {
+      firebaseService.updateUserMetabolicScore(user.uid, metabolicScore);
+    }
+  }, [user, metabolicScore]);
 
   // Prepare leaderboard data
   const currentUserData = {
